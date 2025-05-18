@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Color Picker</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>COLOR-PICKER</h1>
+        </div>
+
+        <div class="pick-section">
+            <button id="pickColorBtn">Pick a Color</button>
+
+            <div class="selected-color">
+                <div class="color-preview-container">
+                    <div id="colorPreview" class="color-preview" style="background-color: #ffffff;"></div>
+                </div>
+                <div class="color-info">
+                    <span id="colorValue">Select a Color</span>
+                    <div class="color-formats">
+                        <span class="format-chip active">RGB</span>
+                        <span class="format-chip">HEX</span>
+                        <span class="format-chip">HSL</span>
+                    </div>
+                    <button class="copy-btn">Copy to clipboard</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="saved-colors">
+            <div class="section-header">
+                <h2>Color Palette</h2>
+                <button class="action-btn">Clear All</button>
+            </div>
+
+            <div id="savedColorsList" class="colors-grid">
+            </div>
+        </div>
+
+        <div class="footer">
+            <button id="exportBtn" class="footer-btn">Export Palette</button>
+            <button id="settingsBtn" class="footer-btn">Settings</button>
+        </div>
+    </div>
+    <div id="settingsModal" style="display: none; /* Add styling */">
+        <h2>Settings</h2>
+        <fieldset>
+            <legend>Theme:</legend>
+            <div>
+                <input type="radio" id="theme-default" name="theme" value="default" checked>
+                <label for="theme-default">Dark (Default)</label>
+            </div>
+            <div>
+                <input type="radio" id="theme-light" name="theme" value="theme-light">
+                <label for="theme-light">Light</label>
+            </div>
+            <div>
+                <input type="radio" id="theme-blue" name="theme" value="theme-blue">
+                <label for="theme-blue">Blue</label>
+            </div>
+        </fieldset>
+        <button id="closeSettingsBtn">Close</button>
+    </div>
+
+    <div class="tooltip" id="notification">Color copied to clipboard!</div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
