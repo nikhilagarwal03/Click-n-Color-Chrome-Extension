@@ -2,34 +2,34 @@
     if (window.colorPickerInjected) return;
     window.colorPickerInjected = true;
 
-    const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
+    const overlay = document.createElement('div'); 
+    overlay.style.position = 'fixed'; 
     overlay.style.top = '0';
     overlay.style.left = '0';
     overlay.style.width = '100%';
     overlay.style.height = '100%';
-    overlay.style.zIndex = '9999';
+    overlay.style.zIndex = '9999'; 
     overlay.style.cursor = 'crosshair';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.1)';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.1)'; 
 
-    const magnifier = document.createElement('div');
-    magnifier.style.position = 'absolute';
+    const magnifier = document.createElement('div'); 
+    magnifier.style.position = 'absolute'; 
     magnifier.style.top = '50px';
     magnifier.style.left = '50px';
     magnifier.style.width = '70px';
     magnifier.style.height = '70px';
     magnifier.style.border = '2px solid white';
     magnifier.style.borderRadius = '10px';
-    magnifier.style.zIndex = '99999'; // Ensure it is above all other elements
-    magnifier.style.backgroundColor = 'red'; // Temporary test color
-    magnifier.style.display = 'block'; // Make sure it's visible
+    magnifier.style.zIndex = '99999'; 
+    magnifier.style.backgroundColor = 'red'; 
+    magnifier.style.display = 'block'; 
 
     document.body.appendChild(overlay);
     document.body.appendChild(magnifier);
 
     document.addEventListener('mousemove', (e) => {
-        magnifier.style.left = `${e.clientX + 15}px`;  // 15px offset to avoid overlap
-        magnifier.style.top = `${e.clientY + 15}px`;   // 15px offset to avoid overlap
+        magnifier.style.left = `${e.clientX + 15}px`;  
+        magnifier.style.top = `${e.clientY + 15}px`;   
     });
 
     let handleMouseMove;
