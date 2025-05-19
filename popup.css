@@ -442,21 +442,24 @@ body {
 }
 
 /* Modal */
-.modal {
+.modal-content-wrapper {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.7);
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    padding: 15px;
+    box-sizing: border-box;
 }
 
 .modal-content {
     background-color: var(--background);
+    color: var(--text);
     border-radius: 10px;
     max-width: 90%;
     width: 300px;
@@ -470,21 +473,32 @@ body {
     justify-content: space-between;
     align-items: center;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
 }
 
-.modal-header h3 {
+.modal-header h3, .modal-header h2 {
     margin: 0;
-    color: white;
 }
 
 .close-modal {
     color: white;
     font-size: 24px;
     cursor: pointer;
+    background: none;
+    border: none;
 }
 
 .modal-body {
     padding: 15px;
+    max-height: 60vh; 
+    overflow-y: auto; 
+}
+
+.modal-footer {
+    padding: 10px 15px;
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 .setting-group {
@@ -516,63 +530,4 @@ input[type="number"] {
     padding: 5px 10px;
     border-radius: 5px;
     width: 100%;
-}
-
-/* Toggle Switch */
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 22px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--card);
-    transition: .4s;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-}
-
-input:checked + .slider {
-    background-color: var(--accent);
-}
-
-input:checked + .slider:before {
-    transform: translateX(18px);
-}
-
-.slider.round {
-    border-radius: 22px;
-}
-
-.slider.round:before {
-    border-radius: 50%;
-}
-
-.modal-footer {
-    padding: 10px 15px;
-    display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid rgba(255,255,255,0.1);
 }
