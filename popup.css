@@ -388,7 +388,7 @@ body {
 }
 
 .footer-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(214, 39, 39, 0.226);
     border-color: var(--secondary);
 }
 
@@ -426,19 +426,54 @@ body {
 
 .export-options .footer-btn {
     padding: 12px;
-    background-color: var(--card);
+    background-color: #726d6d;
     border: 1px solid var(--secondary);
     border-radius: 5px;
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 14px;
     text-align: center;
+    font-weight: bold;
 }
 
-
 .export-options .footer-btn:hover {
-    background-color: var(--hover);
     border-color: var(--accent);
+    background-color: #03030375;
+}
+
+.modal-body fieldset {
+    border: 5px solid #ccc;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+}
+
+.modal-body fieldset legend {
+    font-size: large;
+    font-weight: bold;
+    color: #555;
+    padding: 0 5px;
+}
+
+.modal-body fieldset div {
+    margin-bottom: 8px;
+    display: flex; 
+    align-items: center; 
+}
+
+.modal-body fieldset div input[type="radio"] {
+    margin-right: 8px;
+}
+
+.modal-body fieldset div label {
+    font-size: larger;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.modal-body fieldset div input[type="radio"]:checked + label {
+    font-weight: bold;
+    color: var(--text);
 }
 
 /* Modal */
@@ -513,14 +548,16 @@ body {
 
 .setting-options {
     display: flex;
-    gap: 10px;
+    gap: 15px;
+    margin-bottom: 10px; 
 }
 
 .setting-options label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-weight: normal;
+    display: inline-flex; 
+    align-items: center; 
+    cursor: pointer; 
+    font-size: normal;
+    color: #333;
 }
 
 input[type="number"] {
