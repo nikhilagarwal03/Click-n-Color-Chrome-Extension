@@ -34,6 +34,9 @@
 
     let handleMouseMove;
     let handleClick;
+    let canvas;
+    let ctx;
+    let devicePixelRatio;
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'screenshot') {
@@ -41,45 +44,92 @@
             img.src = message.imageUri;
 
             img.onload = () => {
-                const canvas = document.createElement('canvas');
+                canvas = document.createElement('canvas');
+                devicePixelRatio = window.devicePixelRatio || 1;
+                
+                // Set canvas size to match the actual screenshot dimensions
                 canvas.width = img.width;
                 canvas.height = img.height;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                
+                ctx = canvas.getContext('2d', { willReadFrequently: true });
                 ctx.drawImage(img, 0, 0);
 
                 handleMouseMove = (e) => {
-                    const x = e.clientX;
-                    const y = e.clientY;
-                    const pixel = ctx.getImageData(x, y, 1, 1).data;
-                    const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                    magnifier.style.backgroundColor = color;
+                    // Convert client coordinates to canvas coordinates
+                    const rect = document.documentElement.getBoundingClientRect();
+                    const x = Math.floor((e.clientX - rect.left) * devicePixelRatio);
+                    const y = Math.floor((e.clientY - rect.top) * devicePixelRatio);
+                    
+                    // Ensure coordinates are within canvas bounds
+                    const canvasX = Math.max(0, Math.min(x, canvas.width - 1));
+                    const canvasY = Math.max(0, Math.min(y, canvas.height - 1));
+                    
+                    try {
+                        const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data;
+                        const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                        magnifier.style.backgroundColor = color;
+                    } catch (error) {
+                        console.error('Error getting pixel data:', error);
+                    }
                 };
 
                 handleClick = (e) => {
-                    const x = e.clientX;
-                    const y = e.clientY;
-                    const pixel = ctx.getImageData(x, y, 1, 1).data;
-                    const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                    // Convert client coordinates to canvas coordinates
+                    const rect = document.documentElement.getBoundingClientRect();
+                    const x = Math.floor((e.clientX - rect.left) * devicePixelRatio);
+                    const y = Math.floor((e.clientY - rect.top) * devicePixelRatio);
+                    
+                    // Ensure coordinates are within canvas bounds
+                    const canvasX = Math.max(0, Math.min(x, canvas.width - 1));
+                    const canvasY = Math.max(0, Math.min(y, canvas.height - 1));
+                    
+                    try {
+                        const pixel = ctx.getImageData(canvasX, canvasY, 1, 1).data;
+                        const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
 
-                    chrome.runtime.sendMessage({
-                        type: 'colorPicked',
-                        color: color
-                    });
+                        chrome.runtime.sendMessage({
+                            type: 'colorPicked',
+                            color: color
+                        });
 
-                    cleanup();
+                        cleanup();
+                    } catch (error) {
+                        console.error('Error picking color:', error);
+                        cleanup();
+                    }
                 };
 
                 document.addEventListener('mousemove', handleMouseMove);
                 document.addEventListener('click', handleClick, { once: true });
             };
+            
+            img.onerror = () => {
+                console.error('Failed to load screenshot image');
+                cleanup();
+            };
         }
     });
 
     function cleanup() {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('click', handleClick);
-        overlay.remove();
-        magnifier.remove();
+        if (handleMouseMove) {
+            document.removeEventListener('mousemove', handleMouseMove);
+        }
+        if (handleClick) {
+            document.removeEventListener('click', handleClick);
+        }
+        if (overlay && overlay.parentNode) {
+            overlay.remove();
+        }
+        if (magnifier && magnifier.parentNode) {
+            magnifier.remove();
+        }
         window.colorPickerInjected = false;
     }
+
+    // Add escape key to cancel color picking
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cleanup();
+        }
+    });
 })();
