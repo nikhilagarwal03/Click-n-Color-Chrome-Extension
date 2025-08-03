@@ -68,13 +68,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 target: { tabId: tab.id },
                 files: ['content.js']
             });
+
+            // Add a small delay to ensure content script is fully loaded
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             // Then, capture the screenshot and send it to content script
-            chrome.tabs.captureVisibleTab(null, { format: "png" }, (imageUri) => {
+            chrome.tabs.captureVisibleTab(null, {
+                format: "png",
+                quality: 100 // Ensure maximum quality
+            }, (imageUri) => {
                 if (chrome.runtime.lastError) {
-                    console.error(chrome.runtime.lastError.message);
+                    console.error('Screenshot error:', chrome.runtime.lastError.message);
                     return;
                 }
-                chrome.tabs.sendMessage(tab.id, { type: 'screenshot', imageUri });
+
+                // Send the screenshot to the content script
+                chrome.tabs.sendMessage(tab.id, {
+                    type: 'screenshot',
+                    imageUri: imageUri
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Message sending error:', chrome.runtime.lastError.message);
+                    }
+                });
             });
         } catch (error) {
             console.error('Color picking error:', error);
@@ -107,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showNotification(message) {
         notification.textContent = message;
         notification.classList.add('show');
-        
+
         setTimeout(() => {
             notification.classList.remove('show');
         }, 2000);
@@ -201,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'colorPicked') {
-            const color = message.color;    
+            const color = message.color;
             // Update UI
             colorPreview.style.backgroundColor = color;
             // Apply the active format
@@ -251,20 +267,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Export options
     document.getElementById('exportJson').addEventListener('click', exportAsJson);
     document.getElementById('exportCss').addEventListener('click', exportAsCss);
-    document.getElementById('exportImage').addEventListener('click', exportAsImage); 
+    document.getElementById('exportImage').addEventListener('click', exportAsImage);
     // Export as JSON
     function exportAsJson() {
         chrome.storage.local.get(['savedColors'], (result) => {
             const savedColors = result.savedColors || [];
             const dataStr = JSON.stringify(savedColors, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-            
+
             const exportFileName = 'color-palette.json';
             const linkElement = document.createElement('a');
             linkElement.setAttribute('href', dataUri);
             linkElement.setAttribute('download', exportFileName);
             linkElement.click();
-            
+
             exportPaletteModal.style.display = 'none';
             showNotification('Palette exported as JSON!');
         });
