@@ -19,12 +19,7 @@
 ---
 Demo:
 
-
-https://github.com/user-attachments/assets/7f208f05-d026-4ad1-997e-9212d9352f68
-
-
-
-
+https://github.com/user-attachments/assets/da24b13a-4031-4b3c-a845-18bab8d067b9
 
 ---
 
@@ -114,5 +109,6 @@ Feel free to fork, share, and build upon it!
 If you found this useful, consider giving a ⭐ on [GitHub](https://github.com/nikhilagarwal03/Click-n-Color-Chrome-Extension)!
 
 ---
+
 
 
