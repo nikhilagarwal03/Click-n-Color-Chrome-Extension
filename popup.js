@@ -20,103 +20,246 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Default settings , later can be customized
     let settings = {
-        defaultFormat: 'RGB',
+        defaultFormat: 'rgb',
         maxPaletteSize: 50,
         autoCopy: true
     };
+    const ALLOWED_FORMATS = ['rgb', 'hex', 'hsl'];
+    const ALLOWED_THEMES = ['default', 'light', 'blue'];
+    const DEFAULT_COLOR_TEXT = 'Select a Color';
+    const CLEAR_ALL_DEFAULT_LABEL = 'Clear All';
+    let notificationTimeoutId;
+    let clearAllResetTimeoutId;
+    let isClearAllArmed = false;
+
+    function sanitizeTheme(themeValue) {
+        return ALLOWED_THEMES.includes(themeValue) ? themeValue : 'default';
+    }
+
+    function sanitizeSettings(rawSettings) {
+        const safeSettings = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
+        const defaultFormat = ALLOWED_FORMATS.includes(safeSettings.defaultFormat)
+            ? safeSettings.defaultFormat
+            : 'rgb';
+
+        const parsedPaletteSize = parseInt(safeSettings.maxPaletteSize, 10);
+        const maxPaletteSize = Number.isFinite(parsedPaletteSize)
+            ? Math.min(100, Math.max(10, parsedPaletteSize))
+            : 50;
+
+        const autoCopy = typeof safeSettings.autoCopy === 'boolean'
+            ? safeSettings.autoCopy
+            : true;
+
+        return {
+            defaultFormat,
+            maxPaletteSize,
+            autoCopy
+        };
+    }
+
+    function isTabUrlSupported(url) {
+        return !!url && /^(https?:)\/\//i.test(url);
+    }
+
+    function isColorSelected() {
+        return colorValue.textContent !== DEFAULT_COLOR_TEXT;
+    }
+
+    function updateCopyButtonState() {
+        const disabled = !isColorSelected();
+        copyBtn.disabled = disabled;
+        copyBtn.setAttribute('aria-disabled', String(disabled));
+    }
+
+    function setSelectedColor(color) {
+        colorPreview.style.backgroundColor = color;
+        updateColorValueFormat();
+        updateCopyButtonState();
+    }
 
 
     // Load settings and saved colors
     function loadUserData() {
         chrome.storage.local.get(['settings', 'savedColors', 'theme'], (result) => {
             // Load settings
-            if (result.settings) {
-                settings = result.settings;
-                // Apply default format
-                activateFormatChip(settings.defaultFormat.toUpperCase());
-                // Set form values in settings modal
-                document.querySelector(`input[name="defaultFormat"][value="${settings.defaultFormat.toLowerCase()}"]`).checked = true;
-                document.getElementById('maxPaletteSize').value = settings.maxPaletteSize;
-                document.getElementById('autoCopy').checked = settings.autoCopy;
+            settings = sanitizeSettings(result.settings);
+            // Apply default format
+            activateFormatChip(settings.defaultFormat.toUpperCase());
+            // Set form values in settings modal
+            const defaultFormatInput = document.querySelector(`input[name="defaultFormat"][value="${settings.defaultFormat}"]`);
+            if (defaultFormatInput) {
+                defaultFormatInput.checked = true;
             }
+            document.getElementById('maxPaletteSize').value = settings.maxPaletteSize;
+            document.getElementById('autoCopy').checked = settings.autoCopy;
             // Load saved colors
             const savedColors = result.savedColors || [];
             renderSavedColors(savedColors);
             // Load theme
-            if (result.theme) {
-                document.querySelector(`input[name="theme"][value="${result.theme}"]`).checked = true;
-                applyTheme(result.theme);
+            const theme = sanitizeTheme(result.theme);
+            const themeInput = document.querySelector(`input[name="theme"][value="${theme}"]`);
+            if (themeInput) {
+                themeInput.checked = true;
             }
+            applyTheme(theme);
         });
     }
+        async function copyTextToClipboard(text, successMessage = 'Color copied to clipboard!') {
+            try {
+                await navigator.clipboard.writeText(text);
+                showNotification(successMessage);
+                return true;
+            } catch (error) {
+                console.error('Clipboard write failed:', error);
+                showNotification('Clipboard copy failed. Check permissions.');
+                return false;
+            }
+        }
+
     // Activate format chip
     function activateFormatChip(format) {
         formatChips.forEach(chip => {
             chip.classList.toggle('active', chip.textContent === format);
+            chip.setAttribute('aria-pressed', String(chip.textContent === format));
         });
     }
     // Initialize
     loadUserData();
+    updateCopyButtonState();
+
+    formatChips.forEach(chip => {
+        chip.setAttribute('role', 'button');
+        chip.setAttribute('tabindex', '0');
+        chip.setAttribute('aria-label', `Switch to ${chip.textContent} format`);
+    });
 
 
     // adding Functionality to Pick A Color Button
     pickColorBtn.addEventListener('click', async () => {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            // First, inject the content script
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ['content.js']
-            });
+            if (!tab || !tab.id) {
+                showNotification('No active tab found.');
+                return;
+            }
 
-            // Add a small delay to ensure content script is fully loaded
-            await new Promise(resolve => setTimeout(resolve, 100));
+            if (!isTabUrlSupported(tab.url)) {
+                showNotification('This page is not supported for color picking.');
+                return;
+            }
 
             // Then, capture the screenshot and send it to content script
-            chrome.tabs.captureVisibleTab(null, {
+            chrome.tabs.captureVisibleTab(tab.windowId, {
                 format: "png",
                 quality: 100 // Ensure maximum quality
-            }, (imageUri) => {
+            }, async (imageUri) => {
                 if (chrome.runtime.lastError) {
                     console.error('Screenshot error:', chrome.runtime.lastError.message);
+                    showNotification('Unable to capture screenshot on this page.');
                     return;
                 }
 
-                // Send the screenshot to the content script
-                chrome.tabs.sendMessage(tab.id, {
-                    type: 'screenshot',
-                    imageUri: imageUri
-                }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Message sending error:', chrome.runtime.lastError.message);
-                    }
-                });
+                try {
+                    await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        files: ['content.js']
+                    });
+
+                    sendScreenshotWithRetry(tab.id, imageUri, 6);
+                } catch (error) {
+                    console.error('Script injection error:', error);
+                    showNotification('Unable to start picker on this page.');
+                }
             });
         } catch (error) {
             console.error('Color picking error:', error);
+            showNotification('Color picking failed. Please try again.');
         }
     });
+
+    function sendScreenshotWithRetry(tabId, imageUri, retriesLeft) {
+        chrome.tabs.sendMessage(tabId, {
+            type: 'screenshot',
+            imageUri: imageUri
+        }, (response) => {
+            if (chrome.runtime.lastError || !response || response.status !== 'ready') {
+                if (retriesLeft > 0) {
+                    setTimeout(() => {
+                        sendScreenshotWithRetry(tabId, imageUri, retriesLeft - 1);
+                    }, 120);
+                    return;
+                }
+
+                const errorMessage = chrome.runtime.lastError?.message || 'No response from content script';
+                console.error('Message sending error:', errorMessage);
+                showNotification('Picker not ready. Try again.');
+            }
+        });
+    }
 
 
     // Notifications related program
     // Copy color to clipboard
-    copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(colorValue.textContent);
-        showNotification('Color copied to clipboard!');
+    copyBtn.addEventListener('click', async () => {
+        if (!isColorSelected()) {
+            showNotification('Pick a color first.');
+            return;
+        }
+
+        await copyTextToClipboard(colorValue.textContent);
     });
     // Format switching
     formatChips.forEach(chip => {
         chip.addEventListener('click', () => {
             activateFormatChip(chip.textContent);
             updateColorValueFormat();
+            updateCopyButtonState();
             showNotification('Format Changed!');
+        });
+
+        chip.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                chip.click();
+            }
         });
     });
     // Clear All functionality
     clearAllBtn.addEventListener('click', () => {
-        chrome.storage.local.set({ savedColors: [] }, () => {
-            renderSavedColors([]);
-            showNotification('All colors cleared!');
+        chrome.storage.local.get(['savedColors'], (result) => {
+            const savedColors = result.savedColors || [];
+            if (savedColors.length === 0) {
+                showNotification('Palette is already empty.');
+                return;
+            }
+
+            if (!isClearAllArmed) {
+                isClearAllArmed = true;
+                clearAllBtn.textContent = 'Confirm Clear';
+                showNotification('Click again to confirm clear all.');
+
+                if (clearAllResetTimeoutId) {
+                    clearTimeout(clearAllResetTimeoutId);
+                }
+                clearAllResetTimeoutId = setTimeout(() => {
+                    isClearAllArmed = false;
+                    clearAllBtn.textContent = CLEAR_ALL_DEFAULT_LABEL;
+                }, 2500);
+                return;
+            }
+
+            isClearAllArmed = false;
+            clearAllBtn.textContent = CLEAR_ALL_DEFAULT_LABEL;
+            if (clearAllResetTimeoutId) {
+                clearTimeout(clearAllResetTimeoutId);
+                clearAllResetTimeoutId = null;
+            }
+
+            chrome.storage.local.set({ savedColors: [] }, () => {
+                renderSavedColors([]);
+                showNotification('All colors cleared!');
+            });
         });
     });
     // Show notification
@@ -124,7 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
         notification.textContent = message;
         notification.classList.add('show');
 
-        setTimeout(() => {
+        if (notificationTimeoutId) {
+            clearTimeout(notificationTimeoutId);
+        }
+
+        notificationTimeoutId = setTimeout(() => {
             notification.classList.remove('show');
         }, 2000);
     }
@@ -162,6 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
             themesModal.style.display = 'none';
         }
     });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            exportPaletteModal.style.display = 'none';
+            settingsModal.style.display = 'none';
+            themesModal.style.display = 'none';
+        }
+    });
 
 
     // Update color value based on selected format
@@ -184,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const r = parseInt(match[1]);
         const g = parseInt(match[2]);
         const b = parseInt(match[3]);
-        return `#hex${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
     }
     // function for converting RGB to HEX
     function rgbToHsl(rgb) {
@@ -219,13 +373,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (message.type === 'colorPicked') {
             const color = message.color;
             // Update UI
-            colorPreview.style.backgroundColor = color;
-            // Apply the active format
-            updateColorValueFormat();
+            setSelectedColor(color);
             // Auto-copy if enabled
             if (settings.autoCopy) {
-                navigator.clipboard.writeText(colorValue.textContent);
-                showNotification('Color copied to clipboard!');
+                copyTextToClipboard(colorValue.textContent);
             }
             // Save color
             saveColor(color);
@@ -341,6 +492,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             // Export canvas as PNG
             canvas.toBlob((blob) => {
+                if (!blob) {
+                    exportPaletteModal.style.display = 'none';
+                    showNotification('Image export failed!');
+                    return;
+                }
+
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.download = 'color-palette.png';
@@ -349,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 URL.revokeObjectURL(url);
                 exportPaletteModal.style.display = 'none';
                 showNotification('Palette exported as image!');
-            });
+            }, 'image/png');
         });
     }
 
@@ -361,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show empty state
             const emptyState = document.createElement('div');
             emptyState.classList.add('empty-state');
-            emptyState.innerHTML = '<span style="display: inline-block; white-space: nowrap; font-weight: 600">No colors saved yet. Pick a color To start</span>';
+            emptyState.innerHTML = '<span style="display: inline-block; white-space: nowrap; font-weight: 600">No colors saved yet. Pick a color to start.</span>';
             savedColorsList.appendChild(emptyState);
             return;
         }
@@ -383,12 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Click to select color and copy
             colorDiv.addEventListener('click', () => {
                 // Update the color preview
-                colorPreview.style.backgroundColor = color;
-                // Update color value with active format
-                updateColorValueFormat();
+                setSelectedColor(color);
                 // Copy to clipboard
-                navigator.clipboard.writeText(colorValue.textContent);
-                showNotification('Color copied to clipboard!');
+                copyTextToClipboard(colorValue.textContent);
             });
             savedColorsList.appendChild(colorDiv);
         });
@@ -399,7 +553,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('saveSettings').addEventListener('click', saveSettings);
     function saveSettings() {
         const defaultFormat = document.querySelector('input[name="defaultFormat"]:checked').value;
-        const maxPaletteSize = parseInt(document.getElementById('maxPaletteSize').value);
+        const parsedPaletteSize = parseInt(document.getElementById('maxPaletteSize').value, 10);
+        const maxPaletteSize = Number.isFinite(parsedPaletteSize)
+            ? Math.min(100, Math.max(10, parsedPaletteSize))
+            : 50;
+        document.getElementById('maxPaletteSize').value = maxPaletteSize;
         const autoCopy = document.getElementById('autoCopy').checked;
         settings = {
             defaultFormat,
@@ -420,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save theme settings
     document.getElementById('saveThemeSettingsBtn').addEventListener('click', saveThemeSettings);
     function saveThemeSettings() {
-        const selectedTheme = document.querySelector('input[name="theme"]:checked').value;
+        const selectedTheme = sanitizeTheme(document.querySelector('input[name="theme"]:checked').value);
         chrome.storage.local.set({ theme: selectedTheme }, () => {
             themesModal.style.display = 'none';
             showNotification('Theme saved!');

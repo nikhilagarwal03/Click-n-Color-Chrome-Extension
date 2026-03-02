@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0-blueviolet?style=flat-square">
+  <img src="https://img.shields.io/badge/version-1.1.0-blueviolet?style=flat-square">
   <img src="https://img.shields.io/badge/manifest-v3-orange?style=flat-square">
   <img src="https://img.shields.io/badge/built%20with-JavaScript%20%7C%20HTML%20%7C%20CSS-informational?style=flat-square">
   <img src="https://img.shields.io/github/license/nikhilagarwal03/Click-n-Color-Chrome-Extension?style=flat-square">
@@ -44,11 +44,24 @@ Demo:
 
 ---
 
+## 🆕 Release Notes (v1.1.0)
+
+- ✅ Improved picker reliability so first-click picking works more consistently.
+- ✅ Fixed HEX conversion and export correctness issues.
+- ✅ Added stronger settings/theme validation and safer clipboard/export handling.
+- ✅ Upgraded UX with better keyboard accessibility, focus states, and responsive popup layout.
+- ✅ Refined security scope by removing unnecessary persistent host permission.
+
+For full details, see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## 📂 Project File Structure
 
 ```
 click-n-color/
 ├── background.js # Initializes storage on install
+├── CHANGELOG.md # Release history and fixes
 ├── content.js # Enables color picking functionality
 ├── popup.html # UI for the extension popup
 ├── popup.css # Fully themed, responsive styles
