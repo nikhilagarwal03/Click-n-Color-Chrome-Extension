@@ -58,8 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function isTabUrlSupported(url) {
-        return !!url && /^(https?:)\/\//i.test(url);
+    function isUsableColor(color) {
+        return typeof color === 'string' && color.trim().length > 0;
     }
 
     function isColorSelected() {
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load settings and saved colors
     function loadUserData() {
-        chrome.storage.local.get(['settings', 'savedColors', 'theme'], (result) => {
+        chrome.storage.local.get(['settings', 'savedColors', 'theme', 'lastPickedColor'], (result) => {
             // Load settings
             settings = sanitizeSettings(result.settings);
             // Apply default format
@@ -96,6 +96,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load saved colors
             const savedColors = result.savedColors || [];
             renderSavedColors(savedColors);
+
+            const latestKnownColor = isUsableColor(result.lastPickedColor)
+                ? result.lastPickedColor
+                : (savedColors.length > 0 ? savedColors[0] : null);
+
+            if (isUsableColor(latestKnownColor)) {
+                setSelectedColor(latestKnownColor);
+            }
+
             // Load theme
             const theme = sanitizeTheme(result.theme);
             const themeInput = document.querySelector(`input[name="theme"][value="${theme}"]`);
@@ -128,6 +137,21 @@ document.addEventListener('DOMContentLoaded', () => {
     loadUserData();
     updateCopyButtonState();
 
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') {
+            return;
+        }
+
+        if (changes.lastPickedColor && isUsableColor(changes.lastPickedColor.newValue)) {
+            setSelectedColor(changes.lastPickedColor.newValue);
+        }
+
+        if (changes.savedColors) {
+            const updatedColors = Array.isArray(changes.savedColors.newValue) ? changes.savedColors.newValue : [];
+            renderSavedColors(updatedColors);
+        }
+    });
+
     formatChips.forEach(chip => {
         chip.setAttribute('role', 'button');
         chip.setAttribute('tabindex', '0');
@@ -136,67 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // adding Functionality to Pick A Color Button
-    pickColorBtn.addEventListener('click', async () => {
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab || !tab.id) {
-                showNotification('No active tab found.');
-                return;
-            }
-
-            if (!isTabUrlSupported(tab.url)) {
-                showNotification('This page is not supported for color picking.');
-                return;
-            }
-
-            // Then, capture the screenshot and send it to content script
-            chrome.tabs.captureVisibleTab(tab.windowId, {
-                format: "png",
-                quality: 100 // Ensure maximum quality
-            }, async (imageUri) => {
-                if (chrome.runtime.lastError) {
-                    console.error('Screenshot error:', chrome.runtime.lastError.message);
-                    showNotification('Unable to capture screenshot on this page.');
-                    return;
-                }
-
-                try {
-                    await chrome.scripting.executeScript({
-                        target: { tabId: tab.id },
-                        files: ['content.js']
-                    });
-
-                    sendScreenshotWithRetry(tab.id, imageUri, 6);
-                } catch (error) {
-                    console.error('Script injection error:', error);
-                    showNotification('Unable to start picker on this page.');
-                }
-            });
-        } catch (error) {
-            console.error('Color picking error:', error);
-            showNotification('Color picking failed. Please try again.');
-        }
-    });
-
-    function sendScreenshotWithRetry(tabId, imageUri, retriesLeft) {
-        chrome.tabs.sendMessage(tabId, {
-            type: 'screenshot',
-            imageUri: imageUri
-        }, (response) => {
-            if (chrome.runtime.lastError || !response || response.status !== 'ready') {
-                if (retriesLeft > 0) {
-                    setTimeout(() => {
-                        sendScreenshotWithRetry(tabId, imageUri, retriesLeft - 1);
-                    }, 120);
-                    return;
-                }
-
-                const errorMessage = chrome.runtime.lastError?.message || 'No response from content script';
-                console.error('Message sending error:', errorMessage);
-                showNotification('Picker not ready. Try again.');
+    pickColorBtn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ type: 'startColorPick' }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('startColorPick message error:', chrome.runtime.lastError.message);
             }
         });
-    }
+
+        window.close();
+    });
 
 
     // Notifications related program
@@ -378,28 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (settings.autoCopy) {
                 copyTextToClipboard(colorValue.textContent);
             }
-            // Save color
-            saveColor(color);
         }
     });
-
-
-    function saveColor(color) {
-        chrome.storage.local.get(['savedColors'], (result) => {
-            let savedColors = result.savedColors || [];
-            // Prevent duplicates
-            if (!savedColors.includes(color)) {
-                savedColors.unshift(color); // Add new colors at the beginning
-                // Enforce max palette size
-                if (settings.maxPaletteSize && savedColors.length > settings.maxPaletteSize) {
-                    savedColors = savedColors.slice(0, settings.maxPaletteSize);
-                }
-                chrome.storage.local.set({ savedColors }, () => {
-                    renderSavedColors(savedColors);
-                });
-            }
-        });
-    }
 
 
     // Delete Color
