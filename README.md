@@ -19,8 +19,7 @@
 ---
 Demo:
 
-<img width="520" height="855" alt="image" src="https://github.com/user-attachments/assets/4ca3178b-c75e-44e3-8531-ff9b165a1f8f" />
-
+https://github.com/user-attachments/assets/da24b13a-4031-4b3c-a845-18bab8d067b9
 
 ---
 
@@ -123,4 +122,6 @@ Feel free to fork, share, and build upon it!
 If you found this useful, consider giving a ⭐ on [GitHub](https://github.com/nikhilagarwal03/Click-n-Color-Chrome-Extension)!
 
 ---
+
+
 
